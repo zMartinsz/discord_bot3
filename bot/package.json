@@ -4,7 +4,7 @@
   "description": "Bot para criação de personagens",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js && node index.js",
     "dp": "node deploy-commands.js"
   },
   "dependencies": {
@@ -12,6 +12,7 @@
     "axios": "^1.8.4",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "fs": "^0.0.1-security",
     "mysql2": "^3.14.0",
     "node-fetch": "^3.3.2",
