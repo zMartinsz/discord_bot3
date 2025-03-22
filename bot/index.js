@@ -1,8 +1,8 @@
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
-const fs = require("fs");
+const fs = require("fs").promises;
 const path = require("path");
-const pool = require("../bot/database");
 require("dotenv").config();
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -11,73 +11,69 @@ const client = new Client({
   ],
 });
 
-const eventsPath = path.join(__dirname, "events");
-const eventFiles = fs
-  .readdirSync(eventsPath)
-  .filter((file) => file.endsWith(".js"));
-
-for (const file of eventFiles) {
-  const event = require(path.join(eventsPath, file));
-  if (event.name) {
-    client.on(event.name, (...args) => event.execute(...args));
-    console.log(`✅ Evento carregado: ${event.name}`);
-  }
-}
 client.commands = new Collection();
 
-const commandsPath = path.join(__dirname, "commands");
-const commandFolders = fs.readdirSync(commandsPath);
-
-for (const folder of commandFolders) {
-  const folderPath = path.join(commandsPath, folder);
-
-  // Verifica se é um diretório antes de tentar carregar comandos
-  if (fs.lstatSync(folderPath).isDirectory()) {
-    const commandFiles = fs
-      .readdirSync(folderPath)
-      .filter((file) => file.endsWith(".js"));
-
-    for (const file of commandFiles) {
-      const filePath = path.join(folderPath, file);
-      const command = require(filePath);
-      if (command.data && command.execute) {
-        client.commands.set(command.data.name, command);
-        console.log(`✅ Comando carregado: ${command.data.name}`);
-      } else {
-        console.warn(`⚠️ O comando ${file} não tem "data" ou "execute"!`);
-      }
-    }
+async function loadFiles(dir, filter) {
+  try {
+    const files = await fs.readdir(dir, { withFileTypes: true });
+    return files.filter(filter).map((f) => path.join(dir, f.name));
+  } catch (error) {
+    console.error(`❌ Erro ao carregar ${dir}:`, error);
+    return [];
   }
 }
 
-// Quando o bot estiver pronto
-client.once("ready", () => {
-  console.log(`✅ Bot está online como ${client.user.tag}`);
-});
-client.on("interactionCreate", async (interaction) => {
-  console.log(`🔹 Comando detectado: ${interaction.commandName}`);
-});
+async function loadEvents() {
+  const eventFiles = await loadFiles(path.join(__dirname, "events"), (f) =>
+    f.name.endsWith(".js")
+  );
+  eventFiles.forEach((file) => {
+    const event = require(file);
+    if (event.name) client.on(event.name, (...args) => event.execute(...args));
+  });
+}
 
-// Capturar interações (Slash Commands)
+async function loadCommands() {
+  const commandFolders = await loadFiles(
+    path.join(__dirname, "commands"),
+    (f) => f.isDirectory()
+  );
+  await Promise.all(
+    commandFolders.map(async (folder) => {
+      const commandFiles = await loadFiles(folder, (f) =>
+        f.name.endsWith(".js")
+      );
+      commandFiles.forEach((file) => {
+        const command = require(file);
+        if (command.data && command.execute)
+          client.commands.set(command.data.name, command);
+      });
+    })
+  );
+}
+
+client.once("ready", () =>
+  console.log(`✅ Bot está online como ${client.user.tag}`)
+);
+
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
-  if (!command) {
-    console.error(`❌ Comando ${interaction.commandName} não encontrado!`);
-    return;
-  }
+  if (!command) return;
 
   try {
     await command.execute(interaction);
   } catch (error) {
-    console.error(`❌ Erro ao executar ${interaction.commandName}:`, error);
+    console.error(`❌ Erro no comando ${interaction.commandName}:`, error);
     await interaction.reply({
-      content: "❌ Ocorreu um erro ao executar este comando!",
+      content: "❌ Erro ao executar o comando!",
       ephemeral: true,
     });
   }
 });
 
-// Logar no bot
-client.login(process.env.TOKEN);
+(async () => {
+  await Promise.all([loadEvents(), loadCommands()]);
+  client.login(process.env.TOKEN);
+})();
