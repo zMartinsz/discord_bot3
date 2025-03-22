@@ -1,55 +1,74 @@
-const { WebhookClient } = require("discord.js");
-const pool = require("../database"); // Importa a conexão com o MySQL
+const { WebhookClient, Collection } = require("discord.js");
+const pool = require("../database");
+
+const webhooksCache = new Collection();
+const userPrefixesCache = new Collection();
 
 module.exports = {
   name: "messageCreate",
   async execute(message) {
-    if (message.author.bot) return; // Ignora mensagens de bots
+    if (message.author.bot) return;
 
     try {
-      // Buscar os perfis do usuário no banco
-      const [rows] = await pool.execute(
-        "SELECT nome, gatilho, avatar_url FROM perfis WHERE usuario_id = ?",
-        [message.author.id]
-      );
+      // 🔹 Verifica cache antes de buscar no banco
+      let userProfiles = userPrefixesCache.get(message.author.id);
 
-      if (rows.length === 0) return; // Se o usuário não tem perfis, ignora
+      if (!userProfiles) {
+        const [rows] = await pool.execute(
+          "SELECT nome, gatilho, avatar_url FROM perfis WHERE usuario_id = ?",
+          [message.author.id]
+        );
 
-      // Verificar se a mensagem começa com algum dos prefixos
-      const perfilUsado = rows.find((perfil) =>
+        if (rows.length === 0) return;
+
+        userPrefixesCache.set(message.author.id, rows);
+        userProfiles = rows;
+      }
+
+      // 🔹 Verifica se a mensagem começa com algum dos prefixos
+      const perfilUsado = userProfiles.find((perfil) =>
         message.content.startsWith(perfil.gatilho)
       );
 
-      if (!perfilUsado) return; // Se nenhum prefixo bate, ignora
+      if (!perfilUsado) return;
 
-      // Remover o prefixo da mensagem
       const conteudo = message.content.slice(perfilUsado.gatilho.length).trim();
-      if (!conteudo) return; // Se não sobrou nada, ignora
+      if (!conteudo) return;
 
       console.log(
         `🔹 Mensagem detectada com o perfil ${perfilUsado.nome}: ${conteudo}`
       );
 
-      // Criar um webhook temporário para enviar a mensagem com nome e avatar do personagem
-      const webhook = await message.channel.createWebhook({
-        name: perfilUsado.nome,
-        avatar: perfilUsado.avatar_url,
-      });
+      // 🔹 Cria ou reutiliza um webhook específico para o usuário no canal
+      const webhookKey = `${message.channel.id}-${message.author.id}`;
+      let webhook = webhooksCache.get(webhookKey);
 
-      // Apagar a mensagem original do usuário
-      await message
-        .delete()
-        .catch((error) =>
-          console.error("❌ Erro ao apagar a mensagem:", error)
-        );
+      if (!webhook) {
+        webhook = await message.channel.createWebhook({
+          name: perfilUsado.nome,
+          avatar: perfilUsado.avatar_url,
+        });
 
-      // Enviar a mensagem como o personagem
-      await webhook.send({ content: conteudo });
+        webhooksCache.set(webhookKey, webhook);
+      } else {
+        // 🔹 Atualiza nome e avatar se forem diferentes do perfil
+        await webhook.edit({
+          name: perfilUsado.nome,
+          avatar: perfilUsado.avatar_url,
+        });
+      }
 
-      // Deletar o webhook depois de enviar a mensagem
-      setTimeout(() => webhook.delete(), 5000);
+      // 🔹 Executa ações em paralelo para reduzir o tempo de resposta
+      await Promise.all([
+        message
+          .delete()
+          .catch((error) =>
+            console.error("❌ Erro ao apagar a mensagem:", error)
+          ),
+        webhook.send({ content: conteudo }),
+      ]);
     } catch (error) {
-      console.error("❌ Erro ao buscar o perfil no banco de dados:", error);
+      console.error("❌ Erro no sistema de prefixo:", error);
     }
   },
 };

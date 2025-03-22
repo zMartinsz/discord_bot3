@@ -1,16 +1,30 @@
 const { REST, Routes } = require("discord.js");
 const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
 const commands = [];
-const commandFiles = fs
-  .readdirSync("./commands")
-  .filter((file) => file.endsWith(".js"));
+const commandsPath = path.join(__dirname, "commands");
 
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  if (command.data) {
-    commands.push(command.data.toJSON());
+const commandFolders = fs.readdirSync(commandsPath);
+
+for (const folder of commandFolders) {
+  const folderPath = path.join(commandsPath, folder);
+
+  // Verifica se é um diretório antes de tentar ler
+  if (fs.lstatSync(folderPath).isDirectory()) {
+    const commandFiles = fs
+      .readdirSync(folderPath)
+      .filter((file) => file.endsWith(".js"));
+
+    for (const file of commandFiles) {
+      const filePath = path.join(folderPath, file);
+      const command = require(filePath);
+      if (command.data) {
+        commands.push(command.data.toJSON());
+        console.log(`✅ Comando carregado: ${command.data.name}`);
+      }
+    }
   }
 }
 

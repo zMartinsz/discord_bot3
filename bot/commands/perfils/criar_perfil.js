@@ -1,9 +1,9 @@
 const { SlashCommandBuilder } = require("discord.js");
-const pool = require("../database"); // Importa a conexão com o MySQL
+const pool = require("../../database"); // Importa a conexão com o MySQL
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("criarperfil")
+    .setName("criar_perfil")
     .setDescription("Cria um perfil para usar como personagem")
     .addStringOption((option) =>
       option

@@ -13,35 +13,28 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Carregar comandos
 const commandsPath = path.join(__dirname, "commands");
-const commandFiles = fs
-  .readdirSync(commandsPath)
-  .filter((file) => file.endsWith(".js"));
+const commandFolders = fs.readdirSync(commandsPath);
 
-for (const file of commandFiles) {
-  const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-  if (command.data && command.execute) {
-    client.commands.set(command.data.name, command);
-    console.log(`✅ Comando carregado: ${command.data.name}`);
-  } else {
-    console.warn(`⚠️ O comando ${file} não tem "data" ou "execute"!`);
-  }
-}
+for (const folder of commandFolders) {
+  const folderPath = path.join(commandsPath, folder);
 
-// Carregar eventos
-const eventsPath = path.join(__dirname, "events");
-const eventFiles = fs
-  .readdirSync(eventsPath)
-  .filter((file) => file.endsWith(".js"));
+  // Verifica se é um diretório antes de tentar carregar comandos
+  if (fs.lstatSync(folderPath).isDirectory()) {
+    const commandFiles = fs
+      .readdirSync(folderPath)
+      .filter((file) => file.endsWith(".js"));
 
-for (const file of eventFiles) {
-  const event = require(`./events/${file}`);
-  if (event.once) {
-    client.once(event.name, (...args) => event.execute(...args, client));
-  } else {
-    client.on(event.name, (...args) => event.execute(...args, client));
+    for (const file of commandFiles) {
+      const filePath = path.join(folderPath, file);
+      const command = require(filePath);
+      if (command.data && command.execute) {
+        client.commands.set(command.data.name, command);
+        console.log(`✅ Comando carregado: ${command.data.name}`);
+      } else {
+        console.warn(`⚠️ O comando ${file} não tem "data" ou "execute"!`);
+      }
+    }
   }
 }
 
