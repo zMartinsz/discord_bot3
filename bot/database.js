@@ -1,5 +1,5 @@
 const mysql = require("mysql2/promise");
-
+require("dotenv").config();
 // Obtendo a URL do banco de dados do arquivo .env
 const MYSQL_URL = process.env.MYSQL_URL;
 

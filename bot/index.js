@@ -1,8 +1,8 @@
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const pool = require("../bot/database");
 require("dotenv").config();
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -11,6 +11,18 @@ const client = new Client({
   ],
 });
 
+const eventsPath = path.join(__dirname, "events");
+const eventFiles = fs
+  .readdirSync(eventsPath)
+  .filter((file) => file.endsWith(".js"));
+
+for (const file of eventFiles) {
+  const event = require(path.join(eventsPath, file));
+  if (event.name) {
+    client.on(event.name, (...args) => event.execute(...args));
+    console.log(`✅ Evento carregado: ${event.name}`);
+  }
+}
 client.commands = new Collection();
 
 const commandsPath = path.join(__dirname, "commands");
@@ -41,6 +53,9 @@ for (const folder of commandFolders) {
 // Quando o bot estiver pronto
 client.once("ready", () => {
   console.log(`✅ Bot está online como ${client.user.tag}`);
+});
+client.on("interactionCreate", async (interaction) => {
+  console.log(`🔹 Comando detectado: ${interaction.commandName}`);
 });
 
 // Capturar interações (Slash Commands)
