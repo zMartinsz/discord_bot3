@@ -4,7 +4,7 @@
   "description": "Bot para criação de personagens",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js && node index.js",
+    "start": "node index.js",
     "dp": "node deploy-commands.js"
   },
   "dependencies": {
