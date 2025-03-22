@@ -3,7 +3,7 @@ const app = express();
 
 // Rota de exemplo
 app.get("/", (req, res) => {
-  res.send("Bot rodando...");
+  res.write("Bot rodando...");
 });
 
 // Definindo a porta
