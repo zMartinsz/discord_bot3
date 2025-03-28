@@ -3,7 +3,7 @@ const pool = require("../../database"); // Importa a conexão com o banco de dad
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("editar_perfil")
+    .setName("editar_personagem")
     .setDescription("Edita um perfil existente")
     .addStringOption((option) =>
       option

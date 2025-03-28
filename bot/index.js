@@ -2,12 +2,14 @@ const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const fs = require("fs").promises;
 const path = require("path");
 require("dotenv").config();
-const keep_alive = require("./keep_alive.js");
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMembers, // 🚨 Para garantir que o bot leia reações corretamente!
   ],
 });
 
@@ -27,34 +29,54 @@ async function loadEvents() {
   const eventFiles = await loadFiles(path.join(__dirname, "events"), (f) =>
     f.name.endsWith(".js")
   );
-  eventFiles.forEach((file) => {
+
+  for (const file of eventFiles) {
     const event = require(file);
-    if (event.name) client.on(event.name, (...args) => event.execute(...args));
-  });
+    if (!event.name || !event.execute) {
+      console.warn(`⚠️ Evento inválido encontrado: ${file}`);
+      continue;
+    }
+
+    if (event.once) {
+      client.once(event.name, (...args) => event.execute(...args));
+    } else {
+      client.on(event.name, (...args) => event.execute(...args));
+    }
+  }
 }
 
 async function loadCommands() {
-  const commandFolders = await loadFiles(
-    path.join(__dirname, "commands"),
-    (f) => f.isDirectory()
-  );
-  await Promise.all(
-    commandFolders.map(async (folder) => {
-      const commandFiles = await loadFiles(folder, (f) =>
-        f.name.endsWith(".js")
+  const commandsPath = path.join(__dirname, "commands");
+
+  // Verifica se há subpastas ou comandos na raiz
+  const files = await fs.readdir(commandsPath, { withFileTypes: true });
+
+  for (const file of files) {
+    if (file.isDirectory()) {
+      // Se for uma pasta, carregamos os arquivos dela
+      const commandFiles = await loadFiles(
+        path.join(commandsPath, file.name),
+        (f) => f.name.endsWith(".js")
       );
-      commandFiles.forEach((file) => {
-        const command = require(file);
-        if (command.data && command.execute)
+      for (const commandFile of commandFiles) {
+        const command = require(commandFile);
+        if (command.data && command.execute) {
           client.commands.set(command.data.name, command);
-      });
-    })
-  );
+        }
+      }
+    } else if (file.name.endsWith(".js")) {
+      // Se for um arquivo diretamente na pasta commands
+      const command = require(path.join(commandsPath, file.name));
+      if (command.data && command.execute) {
+        client.commands.set(command.data.name, command);
+      }
+    }
+  }
 }
 
-client.once("ready", () =>
-  console.log(`✅ Bot está online como ${client.user.tag}`)
-);
+client.once("ready", () => {
+  console.log(`✅ Bot está online como ${client.user.tag}`);
+});
 
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
@@ -74,24 +96,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 (async () => {
-  await Promise.all([loadEvents(), loadCommands()]);
+  await loadEvents();
+  await loadCommands();
   client.login(process.env.TOKEN);
 })();
-
-const express = require("express");
-const app = express();
-
-// Rota de exemplo
-app.get("/", (req, res) => {
-  res.write("Bot rodando...");
-});
-
-// Definindo a porta
-const PORT = process.env.PORT || 3000;
-
-// URL completo do serviço
-const appUrl = `https://${process.env.RENDER_EXTERNAL_URL}`;
-
-app.listen(PORT, () => {
-  console.log(`✅ Servidor rodando! Acesse: ${appUrl}`);
-});

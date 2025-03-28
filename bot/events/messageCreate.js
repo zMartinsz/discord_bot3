@@ -34,34 +34,31 @@ module.exports = {
       const conteudo = message.content.slice(perfilUsado.gatilho.length).trim();
       if (!conteudo) return;
 
-      // 🔹 Obtém ou cria webhook no cache
-      const webhookKey = `${message.channel.id}-${message.author.id}`;
-      let webhook = webhooksCache.get(webhookKey);
+      // 🔹 Obtém ou cria um único webhook por canal
+      let webhook = webhooksCache.get(message.channel.id);
 
       if (!webhook) {
-        webhook = await message.channel.createWebhook({
-          name: perfilUsado.nome,
-          avatar: perfilUsado.avatar_url,
-        });
+        const webhooks = await message.channel.fetchWebhooks();
+        webhook = webhooks.find((wh) => wh.owner.id === message.client.user.id);
 
-        webhooksCache.set(webhookKey, webhook);
-      } else {
-        const webhookAvatar = webhook.avatar ? webhook.avatarURL() : null;
-        if (
-          webhook.name !== perfilUsado.nome ||
-          webhookAvatar !== perfilUsado.avatar_url
-        ) {
-          await webhook.edit({
-            name: perfilUsado.nome,
-            avatar: perfilUsado.avatar_url,
+        if (!webhook) {
+          webhook = await message.channel.createWebhook({
+            name: "Perfil Bot",
+            avatar: message.client.user.displayAvatarURL(),
           });
         }
+
+        webhooksCache.set(message.channel.id, webhook);
       }
 
-      // 🔹 Deleta a mensagem original e envia pelo webhook
+      // 🔹 Deleta a mensagem original e envia pelo webhook com nome/avatar do usuário
       await Promise.allSettled([
         message.delete().catch(() => null),
-        webhook.send({ content: conteudo }),
+        webhook.send({
+          content: conteudo,
+          username: perfilUsado.nome,
+          avatarURL: perfilUsado.avatar_url,
+        }),
       ]);
     } catch (error) {
       console.error("❌ Erro no sistema de perfis:", error);

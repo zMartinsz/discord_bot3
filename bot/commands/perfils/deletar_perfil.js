@@ -3,7 +3,7 @@ const pool = require("../../database");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("deletar_perfil")
+    .setName("deletar_personagem")
     .setDescription("deleta um perfil criado")
     .addStringOption((option) =>
       option

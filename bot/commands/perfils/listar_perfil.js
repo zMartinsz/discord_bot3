@@ -3,7 +3,7 @@ const pool = require("../../database");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("listar_perfil")
+    .setName("listar_personagem")
     .setDescription("Lista todos os perfis que você criou."),
 
   async execute(interaction) {

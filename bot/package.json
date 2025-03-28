@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dp": "node deploy-commands.js"
+    "dp": "node dp.js && node index.js"
   },
   "dependencies": {
     "@discordjs/rest": "^2.4.3",
@@ -16,6 +16,7 @@
     "fs": "^0.0.1-security",
     "mysql2": "^3.14.0",
     "node-fetch": "^3.3.2",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "readline-sync": "^1.4.10"
   }
 }
